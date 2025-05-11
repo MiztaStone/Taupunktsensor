@@ -1,0 +1,34 @@
+blueprint:
+  name: Taupunktüberwachung
+  description: Überwacht den Taupunkt und sendet eine Warnung, wenn ein Schwellwert überschritten wird.
+  domain: automation
+  input:
+    taupunkt_sensor:
+      name: Taupunktsensor
+      selector:
+        entity:
+          domain: sensor
+    grenzwert:
+      name: Taupunkt-Grenzwert (°C)
+      default: 15
+      selector:
+        number:
+          min: 0
+          max: 25
+          step: 0.1
+          unit_of_measurement: °C
+    benachrichtigung:
+      name: Benachrichtigungsdienst
+      selector:
+        entity:
+          domain: notify
+
+trigger:
+  - platform: numeric_state
+    entity_id: !input taupunkt_sensor
+    above: !input grenzwert
+
+action:
+  - service: !input benachrichtigung
+    data:
+      message: "Achtung! Der Taupunkt liegt über dem Grenzwert von {{ states('!input taupunkt_sensor') }} °C."

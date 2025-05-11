@@ -1,10 +1,15 @@
 blueprint:
-  name: Taupunktüberwachung
-  description: Überwacht den Taupunkt und sendet eine Warnung, wenn ein Schwellwert überschritten wird.
+  name: Taupunktüberwachung mit Benachrichtigung
+  description: "Benachrichtigt dich aufs Handy, wenn der Taupunkt einen kritischen Wert überschreitet."
   domain: automation
   input:
-    taupunkt_sensor:
-      name: Taupunktsensor
+    temperatur_sensor:
+      name: Temperatursensor
+      selector:
+        entity:
+          domain: sensor
+    feuchte_sensor:
+      name: Feuchtesensor
       selector:
         entity:
           domain: sensor
@@ -17,18 +22,30 @@ blueprint:
           max: 25
           step: 0.1
           unit_of_measurement: °C
-    benachrichtigung:
-      name: Benachrichtigungsdienst
+    notify_device:
+      name: Mobilgerät für Benachrichtigung
       selector:
-        entity:
-          domain: notify
+        device:
+          integration: mobile_app
+
+variables:
+  temp: "{{ states(input.temperatur_sensor) | float }}"
+  rh: "{{ states(input.feuchte_sensor) | float }}"
+  taupunkt: >
+    {% set K2 = 17.62 %}
+    {% set K3 = 243.12 %}
+    {{ (K3 * ((K2*temp)/(K3+temp) + log(rh/100)) / ((K2*K3)/(K3+temp) - log(rh/100))) | round(1) }}
 
 trigger:
   - platform: numeric_state
-    entity_id: !input taupunkt_sensor
+    value_template: "{{ taupunkt }}"
     above: !input grenzwert
 
 action:
-  - service: !input benachrichtigung
-    data:
-      message: "Achtung! Der Taupunkt liegt über dem Grenzwert von {{ states('!input taupunkt_sensor') }} °C."
+  - device_id: !input notify_device
+    domain: mobile_app
+    type: notify
+    message: >
+      Achtung! Der Taupunkt liegt bei {{ taupunkt }} °C und überschreitet den Grenzwert von {{ input.grenzwert }} °C.
+
+mode: single
